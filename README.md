@@ -1,5 +1,7 @@
 # Generative Adversarial Networks for the standardization of peripheral blood cell images
 
+## Abstract
+
 The wireless communications technologies have experienced a exponential development during the last decades. 5G is a prominent exponent whose one of its crucial
 components is the Massive MIMO technology. By supporting multiple streams of signals it allows a revamped signal reconstruction in terms of mobile traffic size, data rate,
 latency and reliability. In this thesis work, we isolated this technology into a SIMO
