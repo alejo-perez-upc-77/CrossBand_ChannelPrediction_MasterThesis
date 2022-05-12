@@ -1,4 +1,4 @@
-# Generative Adversarial Networks for the standardization of peripheral blood cell images
+# ML-aided Cross-Band Channel prediction in MIMO systems
 
 ## Abstract
 
@@ -22,11 +22,13 @@ By evaluating the performance of all models, we highlight that the PPCA model
 outperformed the others in all the datasets, yielding a MSE error of 0.0029, 0.0112,
 0.0584 and 0.0247
 
-´´´bash
+```bash
 ├───Baseline_90TTI
 ├───Baseline_joint
 ├───Baseline_UE1
 ├───Baseline_UE2
 └───VED
 
-´´´
+```
+
+VED contains the Variational Encoder Decoder Experiments. Baseline folders refer to PPCA.
