@@ -20,8 +20,6 @@ library(abind)
 
 ```{r }
 
-data <- as.matrix(read.csv('../data_UE1_600/data_unfold_UE1_600.csv', row.names = 1))
-masked_data <- as.matrix(read.csv('../data_UE1_600/masked_data_UE1_600_04.csv', row.names = 1))
 
 len_masked <- sum(apply(masked_data, 1, anyNA))
 
