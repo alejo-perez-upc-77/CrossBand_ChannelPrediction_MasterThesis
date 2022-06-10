@@ -1,0 +1,180 @@
+---
+title: "Dummy"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r include=FALSE}
+library(R.matlab)
+library(BiocManager)
+library(pcaMethods)
+library(MetabolAnalyze)
+library(MASS)
+library(abind)
+```
+
+##  Load Data from csv 
+
+```{r }
+
+data <- as.matrix(read.csv('../data_90TTI/data_unfold.csv', row.names = 1))
+masked_data <- as.matrix(read.csv('../data_90TTI/masked_data_04.csv', row.names = 1))
+
+len_masked <- sum(apply(masked_data, 1, anyNA))
+
+
+```
+
+## Preprocessing 
+
+We receive the data in a shape [x x x] and subsequently unfold it into a matrix  [`r dim(data)`]. We also separate Imaginary and Real part. Therefore, `r dim(data)[2]`/4 corresponds to the number of Multipath Components for each of the 4 sub-bands. Afterwards we split the `r dim(data)[1]` into a training and validation set, 60% and and 40% of the rows respectively. We mask the validation set with hiding 3 of the bands and liberating 1 each time. The pattern for the masking is freeing bands in this fashion: 1, 3, 2, 4 .
+
+```{r include=FALSE}
+
+split <- function(masked_data, len_masked){
+  
+  # Split Train and Validation Data in terms of the mask length 
+  
+  train <- masked_data[1:(nrow(masked_data) - len_masked), ]
+  
+  valid <- masked_data[(nrow(masked_data) - len_masked + 1):nrow(masked_data), ]
+  
+  list(train=train, valid=valid)
+} 
+
+train_valid <- split(masked_data, len_masked)
+
+train <- train_valid$train
+valid <- train_valid$valid
+
+train_valid_unmasked  <- split(data, len_masked)
+valid_unmask <- train_valid_unmasked$valid
+
+#write.csv(train, 'train_data_06.csv')
+#write.csv(valid_unmask, 'valid_unmask_data_04.csv')
+#write.csv(valid, 'valid_masked_data_04.csv')
+
+```
+
+
+
+
+### PPCA Extraction + Prediction in validation set
+
+Here below our implementation will be outlined. We separate training (without NaNs) and validation (with NaNs) dataset. We estimate covariance parameters of the PPCA via the EM algorithm PCA of the package function feeding the training dataset to it. Later on, variance is estimated taking the variance of the noise when we reconstruct the training dataset by performing the **cross product of scores and loadings obtained from the PPCA**.
+
+#### Dummy
+
+```{r }
+
+# Column Means Training
+
+ypred_col <- colMeans(train)
+```
+Then the prediction on the missing values is done following the formulas specified in the notes.
+
+```{r, include=FALSE}
+
+imputator <- function(valid, ypred_col){
+  y_pred <- valid
+  for (i in 1:nrow(y_pred)){
+    
+   idx <- which(is.na(y_pred[i,]))
+   y_pred[i, idx] <- ypred_col[idx]
+  }
+  
+  y_pred
+} 
+```
+
+```{r }
+missing <- is.na(valid)
+
+valid_pred  <- imputator(valid, ypred_col)
+
+
+```
+A plot is performed to show how the actual predicted values correlate with the predictions. The red dots correspond to the post-processing data (summing the centered means). *The pre-processing and post processing to be discussed in my own implementation due to loadings and scores use post processing in the creation of PPCA*.
+
+```{r , echo=FALSE}
+
+
+# Jinliangs
+corrected_Abs_SE <- sqrt(mean(abs(valid_unmask[missing] - valid_pred[missing])^2) / mean(abs(valid_unmask[missing])^2))
+
+MAE <- mean(abs(valid_unmask[missing] - valid_pred[missing]))
+RMSE <- sqrt(mean((valid_unmask[missing] - valid_pred[missing])^2))
+MSE <- mean((valid_unmask[missing] - valid_pred[missing])^2)
+```
+
+
+
+```{r , echo=FALSE}
+
+table <- matrix(c(corrected_Abs_SE, MAE, RMSE, MSE), 1, 4)
+rownames(table) <- c("Error Metric")
+colnames(table) <- c("NRMSE", "MAE", "RMSE", "MSE")
+
+knitr::kable(table)
+
+  plot(valid_unmask[missing], valid_pred[missing], col='blue',
+       main="Hold-out Prediction PPCA", ylab= 'Prediction', 
+     xlab= 'Background Truth') 
+  
+
+#+points(valid_unmask[missing], valid_pred[missing], col='red' ) 
+
+legend(1,95, legend=c("Predictions", "Post-Processed prediction"),
+       col=c("red", "blue"), lty=1:2, cex=0.8)
+
+```
+
+### Impute in validation
+
+Some fix has to be done here to the library because the features are very much correlated and they use solve to invert huge covariance matrices.
+
+```{r, echo=FALSE}
+valid_pred <- valid
+
+for(i in 1:ncol(valid_pred)){
+  valid_pred[is.na(valid_pred[,i]), i] <- mean(valid_pred[,i], na.rm = TRUE)
+}
+
+```
+
+```{r , echo=FALSE}
+
+
+# Jinliangs
+corrected_Abs_SE <- sqrt(mean(abs(valid_unmask[missing] - valid_pred[missing])^2) / mean(abs(valid_unmask[missing])^2))
+
+MAE <- mean(abs(valid_unmask[missing] - valid_pred[missing]))
+RMSE <- sqrt(mean((valid_unmask[missing] - valid_pred[missing])^2))
+MSE <- mean((valid_unmask[missing] - valid_pred[missing])^2)
+```
+
+
+
+```{r , echo=FALSE}
+
+table <- matrix(c(corrected_Abs_SE, MAE, RMSE, MSE), 1, 4)
+rownames(table) <- c("Error Metric")
+colnames(table) <- c("NRMSE", "MAE", "RMSE", "MSE")
+
+knitr::kable(table)
+
+  plot(valid_unmask[missing], valid_pred[missing], col='blue',
+       main="Hold-out Prediction PPCA", ylab= 'Prediction', 
+     xlab= 'Background Truth') 
+  
+
+#+points(valid_unmask[missing], valid_pred[missing], col='red' ) 
+
+legend(1,95, legend=c("Predictions", "Post-Processed prediction"),
+       col=c("red", "blue"), lty=1:2, cex=0.8)
+
+```
+

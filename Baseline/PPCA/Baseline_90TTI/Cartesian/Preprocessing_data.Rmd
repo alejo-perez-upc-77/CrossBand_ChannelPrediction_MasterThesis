@@ -1,0 +1,119 @@
+---
+title: "PPCA Data Generation"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r include=FALSE}
+library(R.matlab)
+library(BiocManager)
+library(pcaMethods)
+library(MetabolAnalyze)
+library("plot3D")
+library(MASS)
+library(abind)
+library(plotly)
+library(rgl)
+source("../../../Preprocessing_Utilities.R")
+```
+
+```{r include=FALSE}
+#data <- readMat("../data_90TTI/1ue_quandriga_90TTI_10dB_data.mat") 
+
+mat <- data$amp
+
+# Truncation of data
+#mat <- mat[1:(dim(mat)[1]/2),,]
+
+#data <- unfold(mat) 
+
+#write.csv(data,'data_unfold.csv')
+```
+
+
+```{r include=FALSE}
+
+
+len_masked <- 0
+
+
+#masked_data <- pilot_masking(data,0.4)
+
+#write.csv(masked_data, 'masked_data_04.csv')
+```
+
+# Masking for Autoencoder 
+
+```{r include=FALSE}
+data <- as.matrix(read.csv('../data_90TTI/data_unfold.csv', row.names = 1))
+
+a <- (rep(NA, ncol(data)))
+a <- rbind(a, a)
+data_aux <- rbind(a, data)
+
+masked_data <- pilot_masking(data_aux,1)
+masked_data <- masked_data[3:nrow(masked_data), ]
+
+#write.csv(masked_data, 'masked_data_full.csv')
+
+```
+
+```{r include=FALSE}
+# Generate X values NN
+
+X <- t(apply(masked_data, function(x) x[!is.na(x)], MARGIN = 1))
+masked_idx <- is.na(masked_data)
+
+# Generate y Values for NN
+
+y <- matrix(nrow=nrow(masked_data), ncol=3*ncol(masked_data)/4)
+  
+for (i in 1:nrow(data)){
+  idx_row <- which(masked_idx[i,])
+  row <- data[i,idx_row]
+  y[i,] <- row
+}
+
+write.csv(X, 'X_90_TTI.csv')
+write.csv(y, 'y_90_TTI.csv')
+
+```
+
+## 2nd Polarisation
+
+```{r include=FALSE}
+data <- readMat("../../../../Data/data_90TTI/1ue_quandriga_90TTI_10dB_data.mat") 
+
+mat <- data$amp
+
+
+# Truncation of data
+mat <- mat[((dim(mat)[1]/2)+1):nrow(mat),,]
+
+
+data <- unfold(mat) 
+len_masked <- 0
+masked_data <- pilot_masking(data,0.4)
+
+
+
+write.csv(masked_data, '../../../../Data/data_90TTI/2ndpolarisation/masked_data_04_2ndpol.csv')
+
+
+
+write.csv(data,'../../../../Data/data_90TTI/2ndpolarisation/data_unfold_2ndpol.csv')
+```
+
+
+
+# Appendix: All code for this report
+
+```{r ref.label=knitr::all_labels(), echo=TRUE, eval=FALSE}
+```
+
+

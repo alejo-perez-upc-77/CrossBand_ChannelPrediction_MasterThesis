@@ -4,3 +4,5 @@
 **/*.mat
 *.csv
 **/*.csv
+*.pdf
+**/*.pdf

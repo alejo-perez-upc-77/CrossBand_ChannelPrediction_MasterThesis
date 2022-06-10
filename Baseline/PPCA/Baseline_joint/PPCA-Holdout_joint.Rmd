@@ -1,0 +1,258 @@
+---
+title: "Preprocessing + PPCA"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r include=FALSE}
+library(R.matlab)
+library(BiocManager)
+library(pcaMethods)
+library(MetabolAnalyze)
+library("plot3D")
+library(MASS)
+library(abind)
+library(plotly)
+library(rgl)
+source("../../PPCA_Utilities.R")
+
+```
+
+##  Load Data from csv 
+
+```{r }
+
+UE1 <- as.matrix(read.csv('../../../Data/data2UEjoint/data_unfold_UE1_600.csv', row.names = 1))
+UE2 <- as.matrix(read.csv('../../../Data/data2UEjoint/data_unfold_UE2_600.csv', row.names = 1))
+
+masked_data_UE1 <- as.matrix(read.csv('../../../Data/data2UEjoint/masked_data_UE1.csv', row.names = 1))
+masked_data_UE2 <- as.matrix(read.csv('../../../Data/data2UEjoint/masked_data_UE2.csv'))[,c(-1,-2)]
+
+len_masked <- sum(apply(masked_data_UE1, 1, anyNA))
+
+
+```
+
+## Preprocessing 
+
+We receive the data in a shape [x x x] and subsequently unfold it into a matrix  [`r dim(data)`]. We also separate Imaginary and Real part. Therefore, `r dim(data)[2]`/4 corresponds to the number of Multipath Components for each of the 4 sub-bands. Afterwards we split the `r dim(data)[1]` into a training and validation set, 60% and and 40% of the rows respectively. We mask the validation set with hiding 3 of the bands and liberating 1 each time. The pattern for the masking is freeing bands in this fashion: 1, 3, 2, 4 .
+
+```{r include=FALSE}
+
+train_valid_UE1 <- split(masked_data_UE1, len_masked)
+train_valid_UE2 <- split(masked_data_UE2, len_masked)
+
+train_UE1 <- train_valid_UE1$train
+valid_UE1 <- train_valid_UE1$valid
+
+train_UE2 <- train_valid_UE2$train
+valid_UE2 <- train_valid_UE2$valid
+
+
+train_valid_unmasked_UE1  <- split(UE1, len_masked)
+train_valid_unmasked_UE2  <- split(UE2, len_masked)
+
+valid_unmask_UE1 <- train_valid_unmasked_UE1$valid
+valid_unmask_UE2 <- train_valid_unmasked_UE2$valid
+
+train <- rbind(train_UE1, train_UE2)
+valid <- rbind(valid_UE1, valid_UE2)
+
+valid_unmask <- rbind(valid_unmask_UE1, valid_unmask_UE2)
+
+
+#write.csv(train, 'train_data_06.csv')
+#write.csv(valid_unmask, 'valid_unmask_data_04.csv')
+#write.csv(valid, 'valid_masked_data_04.csv')
+
+```
+
+
+
+
+### PPCA Extraction + Prediction in validation set
+
+Here below our implementation will be outlined. We separate training (without NaNs) and validation (with NaNs) dataset. We estimate covariance parameters of the PPCA via the EM algorithm PCA of the package function feeding the training dataset to it. Later on, variance is estimated taking the variance of the noise when we reconstruct the training dataset by performing the **cross product of scores and loadings obtained from the PPCA**.
+
+#### PPCA
+
+```{r }
+
+# Extract PCA, Latent variables and \mu vector from training data
+
+ppca_ <- fit_ppca(train, Pcs=8, method="ppca")
+
+pc_scores <- ppca_$pc_scores
+pc_loadings <- ppca_$pc_loadings
+pc_mu <- ppca_$pc_mu
+epsilon <- ppca_$epsilon
+var_eps <- ppca_$var_eps
+```
+Then the prediction on the missing values is done following the formulas specified in the notes.
+
+```{r, include=FALSE}
+missing <- is.na(valid)
+
+valid_pred  <- pc.predict(valid, pc_mu, pc_loadings, var_eps)
+
+#valid_pred_var_cond <- pc.predict_varcond(valid, pc_mu, pc_loadings, var_eps)
+
+# TO DO: Fix this, add mean just to predicted val 
+#data_rec_postpro <- prep(valid_pred, scl(ppca_), center(ppca_), reverse=TRUE) 
+
+```
+
+```{r }
+ds_name = 'JointDS'
+  
+# Corrected_Abs_SE <- sqrt(mean((valid_unmask[missing] - valid_pred[missing]))^2 / var(valid_unmask[missing]))
+
+# Jinliangs
+
+metrics_vec <- metrics(valid_unmask, missing, valid_pred)
+
+table_metrics(metrics_vec)
+
+
+plot_pred_vs_true(valid_unmask, missing, valid_pred, ds_name)
+
+
+
+
+```
+A plot is performed to show how the actual predicted values correlate with the predictions. The red dots correspond to the post-processing data (summing the centered means). *The pre-processing and post processing to be discussed in my own implementation due to loadings and scores use post processing in the creation of PPCA*.
+
+
+### BPCA Extraction + Prediction in validation set
+
+Some fix has to be done here to the library because the features are very much correlated and they use solve to invert huge covariance matrices.
+
+```{r, echo=FALSE}
+#```{r }
+
+################################################################################
+######################## system is computationally r############################
+#######################singular: reciprocal condition number####################
+################################################################################
+
+## Extract BPCA, Latent variables and \mu vector from training data
+#
+## BPCAs
+bpca_ <-  fit_bpca(train, Pcs=10, method="bpca")
+#
+pc_scores <- bpca_$pc_scores
+pc_loadings <- bpca_$pc_loadings
+pc_mu <- bpca_$pc_mu
+epsilon <- bpca_$epsilon
+var_eps <- bpca_$var_eps
+#
+#
+valid_pred  <- pc.predict(valid, pc_mu, pc_loadings, var_eps)
+#data_rec_postpro <- prep(valid_pred, scl(ppca_), center(ppca_), reverse=TRUE) 
+#
+#
+metrics_vec <- metrics(valid_unmask, missing, valid_pred)
+
+table_metrics(metrics_vec)
+```
+
+
+```{r, echo=FALSE }
+plot_pred_vs_true(valid_unmask, missing, valid_pred, 'BPCA JointDS', 'red')
+
+```
+
+### Grid Search PPCA
+
+```{r }
+itNum <- 40
+
+GridSearch_ppca(train, itNum)
+
+```
+
+```{r }
+
+# Generate X values NN
+
+X <- t(apply(masked_data, function(x) x[!is.na(x)], MARGIN = 1))
+masked_idx <- is.na(masked_data)
+
+# Generate y Values for NN
+
+y <- matrix(nrow = nrow(X), ncol=3*(ncol(masked_data)/4))
+  
+for (i in 1:nrow(masked_idx)){
+  idx_row <- which(masked_idx[i,])
+  row <- data[i,idx_row]
+  y[i,] <- row
+}
+
+#write.csv(X, '../data_UE1_600/X_600_TTI.csv')
+#write.csv(y, '../data_UE1_600/y_600_TTI.csv')
+```
+
+
+### Grid Search PPCA
+```{r }
+a = pca(train, nPcs=40, method="ppca")
+plot(a@R2, main='% of explained variance per number of PPCs')
+points(which.min(a@R2), min(a@R2), col="red")
+```
+
+```{r, echo=FALSE, warning = FALSE, message = FALSE}
+## Quick Plot 4 MPC over Time RE
+Nmpc= 640
+data <- rbind(train, valid_unmask)
+  
+ds_name='JointDS'
+plot_1MPC(valid_unmask, TRUE, Nmpc, ds_name)
+
+```
+```{r }
+## Quick Plot 4 MPC over Time Module IM
+
+plot_1MPC(data, FALSE, Nmpc, ds_name)
+
+```
+
+```{r }
+
+
+ds_name='UE0 Predictions Valid Set'
+
+plot_1MPC(valid_pred, TRUE, Nmpc, ds_name)
+
+```
+
+```{r }
+
+plot_1MPC(valid_pred, FALSE, Nmpc, ds_name)
+
+
+```
+
+
+```{r }
+
+mat_plot <- valid_pred[,1]
+mat_plot <- rbind(mat_plot, valid_pred[,(1+Nmpc*2)])
+mat_plot <- rbind(mat_plot, valid_pred[,(1+Nmpc*4)])
+mat_plot <- rbind(mat_plot, valid_pred[,(1+Nmpc*6)])
+
+plot_ly(z = mat_plot, type = "surface")
+
+```
+```{r }
+NTTI=590
+  
+plot3d( 
+  x=1:4, y=1:NTTI, z=mat_plot, 
+
+  xlab="Sepal Length", ylab="Sepal Width", zlab="Petal Length")
+
+
+```
