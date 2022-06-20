@@ -117,5 +117,46 @@ pilot_masking <- function(mat,perc){
 }
 
 
+unfold_polar <- function(mat){
+  
+  # Unfolds Matrix "mat" with dimensions [p x sb x tti] into [tti x sb·p·2]. 
+  # This 2 is stands for Re and Im Part Separated
+  # p: Path
+  # sb: Number of Freq Subband
+  # tti: Time Transmitting Interval 
+  
+  # Inputs
+  # mat: matrix [p x sb x tti]
+  
+  # Outputs
+  # unfolded: matrix [tti x sb·p·2]
+  
+  p <- dim(mat)[1] # Paths per sb per Re or Im
+  
+  sb <- dim(mat)[2] 
+  
+  # empty matrix to be filled
+  unfolded <- matrix(NA, dim(mat)[3], dim(mat)[1] * sb * 2)
+  
+  fold_iterate <- c(1:p, (2*p+1):(3*p), (4*p+1):(5*p), (6*p+1):(7*p))  
+  # Iterates unfolded mat 
+  
+  fold_x <- 1
+  
+  for (i in 1:sb){ # Iterates sb (4)
+    
+    for  (j in 1:p){ # Iterates p
+      
+      subset <- mat[j,i,]
+      
+      unfolded[, fold_iterate[fold_x]]  <- Mod(subset) 
+      unfolded[, fold_iterate[fold_x] + p]  <- Arg(subset) 
+      
+      fold_x <- fold_x + 1  
+      
+    }
+  }
+  return(unfolded)
+}
 
 

@@ -24,9 +24,9 @@ Nantennas <- 32
 ####### Import Channel Background Truth   #######
 #################################################
 
-dataUE1 <- readMat("../../../Data/data_UE1_600/channel_ue1.mat") 
+dataUE1 <- readMat("../../../Data/data_UE2_600/channel_ue2.mat") 
 
- ## UE1 Data  
+## UE1 Data  
 
 True_chan_UE1_pol_1 <- dataUE1$channel.ue[1:Nantennas, , (10+1):dim(dataUE1$channel.ue)[3]]
 
@@ -39,7 +39,7 @@ True_chan_UE1_pol_2 <-  dataUE1$channel.ue[1:Nantennas, , (10+1):dim(dataUE1$cha
 
 # We would Use Weight matrix here
 
-data <- readMat("../../../Data/data_UE1_600/quadriga_ue1_snr10_avg10TTI_total600TTI_evalinterval1TTI_seed123.mat") 
+data <- readMat("../../../Data/data_UE2_600/quadriga_ue2_snr10_avg10TTI_total600TTI_evalinterval1TTI_seed123.mat") 
   
 ## Weight Matrix Parameters of Transformation 
 
@@ -95,10 +95,10 @@ Channel_Estimated_Pol_2 <- channel_reconstruction_3dArray(Estimated_Pol_2)
 MSE_TTI <- mse_TTIs(True_chan_UE1_pol_1, Channel_Estimated_Pol_1)
 
 mse_TTIs_per_SB <- mse_TTIs_per_band(True_chan_UE1_pol_1,
-                                     Channel_Estimated_Pol_1)
+                                       Channel_Estimated_Pol_1)
 
 mse_TTIs_per_SB_2 <- mse_TTIs_per_band_2(True_chan_UE1_pol_1,
-                                         Channel_Estimated_Pol_1)
+                                       Channel_Estimated_Pol_1)
 
 
 mse_TTIs_per_band[which(mse_TTIs_per_band<0.0001)]<-NaN
@@ -108,8 +108,8 @@ mse_TTIs_per_band[which(mse_TTIs_per_band<0.0001)]<-NaN
 ######################################
 ######################################
 
-plot_MSE_by_band(mse_TTIs_per_SB, title = 'NMSE of True Channel VS Estimated per band', ylim=c(0.05,0.12))
-
+plot_MSE_by_band(mse_TTIs_per_SB, title = 'NMSE of True Channel VS Estimated per band', ylim=c(0.065,0.115))
+  
 #write.csv(folded_mat,'prediction_valid fold.csv')
 
 plot_ly(z = mse_TTIs_per_SB, type = "surface")
@@ -125,7 +125,7 @@ plot3d(
 ######################################
 ######################################
 
-plot_MSE_by_band(mse_TTIs_per_SB_2, title = 'NMSE of True Channel VS Estimated per band UE1', ylim= c( 0.0, 0.09) )
+plot_MSE_by_band(mse_TTIs_per_SB_2, title = 'NMSE of True Channel VS Estimated per band UE2', ylim=c(0.02,0.08))
 
 #write.csv(folded_mat,'prediction_valid fold.csv')
 
@@ -140,5 +140,21 @@ plot3d(
   xlab="Subbands", ylab="TTIs", zlab="MSE")
 
 ## 1 subpath
+
+
+
+
+
+### Plot of one antenna
+
+
+plot(Mod(True_chan_UE1_pol_1[1,1:100,1]), type='l', ylim=c(0,3))
+
+points(Mod(Channel_Estimated_Pol_1[1,1:100,1]), type='l', col=2)
+
+
+
+
+
 
 

@@ -103,7 +103,7 @@ chan_reconstruction_row <- function(folded_mat, i, Nantennas=32){
   # folded_mat: matrix [MPCs x sb x TTI]
   
   # Outputs
-  # sbfold: matrix [Nantennas * sb  x Ncarriers x TTI]
+  # sbfold: matrix [Nantennas  x Ncarriers * sb x TTI]
   
   # Intermediate Functions:
   # It calls 
@@ -125,9 +125,9 @@ chan_reconstruction_row <- function(folded_mat, i, Nantennas=32){
   ## Concat 4 SB channels
   
   fold_chan <-  SB1_chan
-  fold_chan <- rbind(fold_chan, SB2_chan)
-  fold_chan <- rbind(fold_chan, SB3_chan)
-  fold_chan <- rbind(fold_chan, SB4_chan)
+  fold_chan <- cbind(fold_chan, SB2_chan)
+  fold_chan <- cbind(fold_chan, SB3_chan)
+  fold_chan <- cbind(fold_chan, SB4_chan)
   
   fold_chan
   }
@@ -158,14 +158,14 @@ channel_reconstruction_3dArray <- function(folded_mat, Ncarriers=408, Nantennas=
   # folded_mat: matrix [MPCs x sb x TTI]
   
   # Outputs
-  # sbfold: matrix [Nantennas * sb  x Ncarriers x TTI]
+  # sbfold: matrix [Nantennas x Ncarriers * sb x TTI]
   
   # Intermediate Functions:
   # It calls 
     # Chan_reconstruction_row -> takes TTI by TTI and outputs the Channel
   
   
-  channel_all_TTI <- array(dim = c(Nantennas*4, Ncarriers, dim(folded_mat)[3]))
+  channel_all_TTI <- array(dim = c(Nantennas, Ncarriers*4, dim(folded_mat)[3]))
   
   for (i in 1:dim(folded_mat)[3]){
     
@@ -194,22 +194,55 @@ mse_TTIs <- function(channel_pred, channel_truth){
   mse_vec
 }
 
-
-mse_TTIs_per_band <- function(channel_pred, channel_truth, Nantennas=32){
+#############################################################################
+mse_TTIs_per_band <- function(channel_pred, channel_truth, Ncarriers=408){
   
   mse_vec <- matrix(nrow = 4 , ncol = dim(channel_pred)[3] )
+  
+  Sb_ind_1 = 1:Ncarriers
+  Sb_ind_2 = (Ncarriers+1):(Ncarriers*2)
+  Sb_ind_3 = (Ncarriers*2+1):(Ncarriers*3)
+  Sb_ind_4 = (Ncarriers*3+1):(Ncarriers*4)
   
   for (i in 1:dim(channel_pred)[3]){
     
     ###   How do we take difference here ??
     
-    mse_vec[ 1, i] <- norm(c(c(channel_truth[1:Nantennas, ,i]) - c(channel_pred[1:Nantennas, ,i])), type="2" )/norm(c(channel_truth[1:Nantennas, ,i]), type="2")
+    mse_vec[ 1, i] <- norm(c(c(channel_truth[, Sb_ind_1, i]) - c(channel_pred[, Sb_ind_1, i])), type="2" )/norm(c(channel_truth[, Sb_ind_1,i]), type="2")
+     
+    mse_vec[ 2, i] <- norm(c(c(channel_truth[, Sb_ind_2, i]) - c(channel_pred[, Sb_ind_2, i])), type="2" )/norm(c(channel_truth[, Sb_ind_2,i]), type="2")
+     
+    mse_vec[ 3, i] <- norm(c(c(channel_truth[, Sb_ind_3, i]) - c(channel_pred[, Sb_ind_3, i])), type="2" )/norm(c(channel_truth[, Sb_ind_3,i]), type="2")
+     
+    mse_vec[ 4, i] <- norm(c(c(channel_truth[, Sb_ind_4, i]) - c(channel_pred[, Sb_ind_4, i])), type="2" )/norm(c(channel_truth[, Sb_ind_4,i]), type="2")
+     
     
-    mse_vec[ 2, i] <- norm(c(c(channel_truth[(Nantennas+1):(Nantennas*2), ,i]) - c(channel_pred[(Nantennas+1):(Nantennas*2), ,i])), type="2" )/norm(c(channel_truth[(Nantennas+1):(Nantennas*2), ,i]), type="2")
+  }
+  
+  mse_vec
+}
+
+
+mse_TTIs_per_band_2 <- function(channel_pred, channel_truth, Ncarriers=408){
+  
+  mse_vec <- matrix(nrow = 4 , ncol = dim(channel_pred)[3] )
+  
+  Sb_ind_1 = 1:Ncarriers
+  Sb_ind_2 = (Ncarriers+1):(Ncarriers*2)
+  Sb_ind_3 = (Ncarriers*2+1):(Ncarriers*3)
+  Sb_ind_4 = (Ncarriers*3+1):(Ncarriers*4)
+  
+  for (i in 1:dim(channel_pred)[3]){
     
-    mse_vec[ 3, i] <- norm(c(c(channel_truth[(Nantennas*2+1):(Nantennas*3), ,i]) - c(channel_pred[(Nantennas*2+1):(Nantennas*3), ,i])), type="2" )/norm(c(channel_truth[(Nantennas*2+1):(Nantennas*3), ,i]), type="2")
+    ###   How do we take difference here ??
     
-    mse_vec[ 4, i] <- norm(c(c(channel_truth[(Nantennas*3+1):(Nantennas*4), ,i]) - c(channel_pred[(Nantennas*3+1):(Nantennas*4), ,i])), type="2" )/norm(c(channel_truth[(Nantennas*3+1):(Nantennas*4), ,i]), type="2")
+    mse_vec[ 1, i] <- norm(((channel_truth[, Sb_ind_1, i]) - (channel_pred[, Sb_ind_1, i])), type="2" )/norm((channel_truth[, Sb_ind_1,i]), type="2")
+    
+    mse_vec[ 2, i] <- norm(((channel_truth[, Sb_ind_2, i]) - (channel_pred[, Sb_ind_2, i])), type="2" )/norm((channel_truth[, Sb_ind_2,i]), type="2")
+    
+    mse_vec[ 3, i] <- norm(((channel_truth[, Sb_ind_3, i]) - (channel_pred[, Sb_ind_3, i])), type="2" )/norm((channel_truth[, Sb_ind_3,i]), type="2")
+    
+    mse_vec[ 4, i] <- norm(((channel_truth[, Sb_ind_4, i]) - (channel_pred[, Sb_ind_4, i])), type="2" )/norm((channel_truth[, Sb_ind_4,i]), type="2")
     
     
   }
@@ -218,11 +251,12 @@ mse_TTIs_per_band <- function(channel_pred, channel_truth, Nantennas=32){
 }
 
 
-plot_MSE_by_band <- function(mse_mat){
+#############################################################################
+plot_MSE_by_band <- function(mse_mat, title, ylim=c(0,0.5)){
   
   sb <- dim(mse_mat)[1]
   
-  plot(mse_mat[1,])
+  plot(mse_mat[1,], main = title, ylim=ylim)
   
   for(i in 2:sb){
     
